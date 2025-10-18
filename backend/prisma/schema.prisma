@@ -1,0 +1,316 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url  	    = env("DATABASE_URL")
+  // uncomment next line if you use Prisma <5.10
+  // directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// Users and Authentication
+model User {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  fullName      String   @map("full_name")
+  phone         String?
+  role          UserRole @default(USER)
+  locale        String   @default("ar")
+  isActive      Boolean  @default(true) @map("is_active")
+  lastLogin     DateTime? @map("last_login")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Trial system
+  trialStartDate DateTime? @map("trial_start_date")
+  trialEndDate   DateTime? @map("trial_end_date")
+  isTrialActive  Boolean   @default(true) @map("is_trial_active")
+
+  // Relations
+  auditLogs           AuditLog[]
+  invoicesIn          InvoiceIn[]
+  invoicesOut         InvoiceOut[]
+  inventoryMovements  InventoryMovement[]
+  employeeTransactions EmployeeTransaction[]
+  payrollApprovals    Payroll[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  ACCOUNTANT
+  WAREHOUSE_MANAGER
+  USER
+}
+
+// Audit Logging
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+// Currencies
+model Currency {
+  id     String @id @default(cuid())
+  code   String @unique
+  name   String
+  symbol String
+  isActive Boolean @default(true) @map("is_active")
+
+  @@map("currencies")
+}
+
+// Partners (Customers/Vendors)
+model Partner {
+  id          String      @id @default(cuid())
+  type        PartnerType
+  name        String
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  invoicesIn  InvoiceIn[]
+  invoicesOut InvoiceOut[]
+
+  @@map("partners")
+}
+
+enum PartnerType {
+  CUSTOMER
+  VENDOR
+}
+
+// Invoices In (الواردات)
+model InvoiceIn {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(15, 2)
+  currency    String
+  description String?
+  date        DateTime
+  vendorId    String?  @map("vendor_id")
+  category    String?
+  attachments String[] // Array of file paths
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  vendor      Partner? @relation(fields: [vendorId], references: [id])
+  creator     User     @relation(fields: [createdBy], references: [id])
+  movements   InventoryMovement[]
+
+  @@map("invoices_in")
+}
+
+// Invoices Out (الصادرات)
+model InvoiceOut {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(15, 2)
+  currency    String
+  description String?
+  date        DateTime
+  customerId  String?  @map("customer_id")
+  category    String?
+  attachments String[] // Array of file paths
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  customer    Partner? @relation(fields: [customerId], references: [id])
+  creator     User     @relation(fields: [createdBy], references: [id])
+  movements   InventoryMovement[]
+
+  @@map("invoices_out")
+}
+
+// Inventory Items
+model InventoryItem {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  unit        String
+  minStock    Decimal  @map("min_stock") @db.Decimal(10, 2)
+  price       Decimal  @db.Decimal(15, 2)
+  currency    String
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  movements   InventoryMovement[]
+
+  @@map("inventory_items")
+}
+
+// Inventory Movements
+model InventoryMovement {
+  id              String              @id @default(cuid())
+  itemId          String              @map("item_id")
+  type            InventoryMovementType
+  quantity        Decimal             @db.Decimal(10, 2)
+  relatedInvoiceId String?            @map("related_invoice_id")
+  relatedInvoiceType String?           @map("related_invoice_type")
+  date            DateTime
+  notes           String?
+  createdBy       String              @map("created_by")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  // Relations
+  item            InventoryItem       @relation(fields: [itemId], references: [id])
+  creator         User                @relation(fields: [createdBy], references: [id])
+
+  @@map("inventory_movements")
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+}
+
+// Employees
+model Employee {
+  id          String        @id @default(cuid())
+  name        String
+  baseSalary  Decimal       @map("base_salary") @db.Decimal(15, 2)
+  currency    String
+  hireDate    DateTime      @map("hire_date")
+  status      EmployeeStatus @default(ACTIVE)
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  transactions EmployeeTransaction[]
+  payrolls     Payroll[]
+
+  @@map("employees")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+// Employee Transactions
+model EmployeeTransaction {
+  id         String                    @id @default(cuid())
+  employeeId String                    @map("employee_id")
+  type       EmployeeTransactionType
+  amount     Decimal                   @db.Decimal(15, 2)
+  date       DateTime
+  notes      String?
+  createdBy  String                    @map("created_by")
+  createdAt  DateTime                 @default(now()) @map("created_at")
+
+  // Relations
+  employee   Employee                 @relation(fields: [employeeId], references: [id])
+  creator    User                     @relation(fields: [createdBy], references: [id])
+
+  @@map("employee_transactions")
+}
+
+enum EmployeeTransactionType {
+  ADVANCE
+  ABSENCE
+  DEDUCTION
+  BONUS
+  SALARY
+}
+
+// Payroll
+model Payroll {
+  id              String   @id @default(cuid())
+  employeeId      String   @map("employee_id")
+  periodMonth     Int      @map("period_month")
+  periodYear      Int      @map("period_year")
+  grossSalary     Decimal  @map("gross_salary") @db.Decimal(15, 2)
+  totalAdvances   Decimal  @map("total_advances") @db.Decimal(15, 2)
+  totalAbsences   Decimal  @map("total_absences") @db.Decimal(15, 2)
+  totalDeductions Decimal  @map("total_deductions") @db.Decimal(15, 2)
+  totalBonuses    Decimal  @map("total_bonuses") @db.Decimal(15, 2)
+  netSalary       Decimal  @map("net_salary") @db.Decimal(15, 2)
+  currency        String
+  approvedBy      String?  @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  approver        User?    @relation(fields: [approvedBy], references: [id])
+
+  @@unique([employeeId, periodMonth, periodYear])
+  @@map("payroll")
+}
+
+// System Settings
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   @default("string") // string, number, boolean, json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+// Reports Cache
+model ReportsCache {
+  id           String   @id @default(cuid())
+  reportType   String   @map("report_type")
+  paramsHash   String   @map("params_hash")
+  dataJson     Json     @map("data_json")
+  generatedAt  DateTime @default(now()) @map("generated_at")
+  expiresAt    DateTime @map("expires_at")
+
+  @@map("reports_cache")
+}
+
+// Notifications
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean  @default(false) @map("is_read")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}

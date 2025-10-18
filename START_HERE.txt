@@ -1,0 +1,36 @@
+🚀 نظام إبراهيم للمحاسبة المتقدم - جاهز للتشغيل!
+
+📋 الخطوات السريعة:
+
+1. تثبيت التبعيات:
+   npm run install:all
+
+2. إعداد البيئة:
+   cp backend/env.example backend/.env
+
+3. إعداد قاعدة البيانات:
+   cd backend
+   npx prisma migrate dev
+   npx prisma db seed
+
+4. تشغيل التطبيق:
+   npm run dev
+
+5. الوصول للتطبيق:
+   Frontend: http://localhost:3000
+   Backend: http://localhost:3001
+
+👤 بيانات تسجيل الدخول:
+- ibrahem / sanad97 (مدير النظام)
+- iboo2 / pass567 (مدير)
+- ahmed / pass123 (مدير)
+- sara / sara123 (محاسب)
+- ali / ali123 (مستخدم)
+- tset / test1 (مستخدم)
+
+📚 للمزيد من التفاصيل:
+- README.md - الدليل الشامل
+- QUICK_START.md - التعليمات السريعة
+- docs/ - التوثيق الكامل
+
+🎉 النظام جاهز للاستخدام!
