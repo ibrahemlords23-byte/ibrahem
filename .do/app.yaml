@@ -1,0 +1,30 @@
+name: ibrahim-accounting-system
+services:
+- name: backend
+  source_dir: /backend
+  github:
+    repo: ibrahemlords23-byte/ibrahem
+    branch: main
+  run_command: npm start
+  build_command: npm install && npm run build
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  http_port: 3001
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: PORT
+    value: 3001
+  - key: DATABASE_URL
+    value: postgresql://neondb_owner:npg_SRoDGZ42qWFp@ep-billowing-band-adhuxspr-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+  - key: JWT_SECRET
+    value: your-super-secret-jwt-key-here-change-in-production
+  - key: JWT_REFRESH_SECRET
+    value: your-super-secret-refresh-key-here-change-in-production
+  - key: FRONTEND_URL
+    value: https://your-app.netlify.app
+databases:
+- name: ibrahim-db
+  engine: PG
+  version: "13"
